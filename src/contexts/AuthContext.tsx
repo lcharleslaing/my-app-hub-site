@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
+import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '../services/firebaseConfig';
 
@@ -31,17 +31,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    console.log('Setting up auth state listener');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed:', user?.email);
       setCurrentUser(user);
 
       if (user) {
         try {
+          console.log('Fetching user details for:', user.uid);
           const userDoc = await getDoc(doc(firestore, 'users', user.uid));
           if (userDoc.exists()) {
+            console.log('User details found:', userDoc.data());
             setUserDetails(userDoc.data() as UserDetails);
+          } else {
+            console.log('No user details found');
+            setUserDetails(null);
           }
         } catch (error) {
           console.error('Error fetching user details:', error);
+          setUserDetails(null);
         }
       } else {
         setUserDetails(null);
@@ -56,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     currentUser,
     userDetails,
-    loading,
+    loading
   };
 
   return (

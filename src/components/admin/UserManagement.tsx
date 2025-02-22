@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { firestore } from '../../services/firebaseConfig';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -11,29 +11,67 @@ interface User {
   createdAt: string;
 }
 
+interface Invitation {
+  email: string;
+  role: string;
+  token: string;
+  createdAt: string;
+  expiresAt: string;
+  status: 'pending' | 'accepted' | 'expired';
+}
+
 export const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { userDetails } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('user');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchUsers();
+    const q = query(collection(firestore, 'users'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const userData: User[] = [];
+      snapshot.forEach((doc) => {
+        userData.push({ id: doc.id, ...doc.data() } as User);
+      });
+      setUsers(userData);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const fetchUsers = async () => {
+  const handleInviteUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
     try {
-      const usersSnapshot = await getDocs(collection(firestore, 'users'));
-      const usersData = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as User[];
-      setUsers(usersData);
+      // Generate a random token
+      const token = Math.random().toString(36).substring(2, 15);
+
+      // Create invitation document
+      await addDoc(collection(firestore, 'invitations'), {
+        email: inviteEmail,
+        role: inviteRole,
+        token,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days expiry
+        status: 'pending'
+      });
+
+      // Send invitation email (you'll need to implement this with your email service)
+      // For now, we'll just show the registration link
+      const registrationLink = `${window.location.origin}/register?token=${token}`;
+      setSuccess(`Invitation sent! Registration link: ${registrationLink}`);
+
+      setShowInviteModal(false);
+      setInviteEmail('');
+      setInviteRole('user');
     } catch (err) {
-      setError('Error fetching users');
-      console.error(err);
-    } finally {
-      setLoading(false);
+      setError('Failed to send invitation');
+      console.error('Error sending invitation:', err);
     }
   };
 
@@ -42,38 +80,47 @@ export const UserManagement: React.FC = () => {
       await updateDoc(doc(firestore, 'users', userId), {
         role: newRole
       });
-      await fetchUsers(); // Refresh the list
     } catch (err) {
-      setError('Error updating user role');
-      console.error(err);
+      console.error('Error updating role:', err);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
-
-    try {
-      await deleteDoc(doc(firestore, 'users', userId));
-      await fetchUsers(); // Refresh the list
-    } catch (err) {
-      setError('Error deleting user');
-      console.error(err);
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await deleteDoc(doc(firestore, 'users', userId));
+      } catch (err) {
+        console.error('Error deleting user:', err);
+      }
     }
   };
 
   if (userDetails?.role !== 'superAdmin') {
-    return <div>Access denied</div>;
+    return <div className="p-4 text-red-600">Access denied</div>;
   }
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8">User Management</h1>
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">User Management</h1>
+        <button
+          onClick={() => setShowInviteModal(true)}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Invite User
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-md">{error}</div>
+      )}
+
+      {success && (
+        <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-md">{success}</div>
+      )}
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -91,33 +138,27 @@ export const UserManagement: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {users.map(user => (
+            {users.map((user) => (
               <tr key={user.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {user.displayName}
-                      </div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </div>
-                  </div>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-medium text-gray-900">{user.displayName}</div>
+                  <div className="text-sm text-gray-500">{user.email}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4">
                   <select
                     value={user.role}
                     onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                    className="text-sm border rounded p-1"
+                    className="text-sm text-gray-900 border rounded p-1"
                   >
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
                     <option value="superAdmin">Super Admin</option>
                   </select>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 text-sm text-gray-500">
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="px-6 py-4">
                   <button
                     onClick={() => handleDeleteUser(user.id)}
                     className="text-red-600 hover:text-red-900"
@@ -130,6 +171,57 @@ export const UserManagement: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Invite User Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full">
+            <h2 className="text-2xl font-bold mb-4">Invite User</h2>
+            <form onSubmit={handleInviteUser}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Role
+                </label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Send Invitation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

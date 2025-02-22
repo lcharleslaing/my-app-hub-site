@@ -1,15 +1,37 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // System collection - allow read for initial super admin check
-    match /system/{document} {
-      allow read: if true;  // Temporarily allow reads to check if super admin exists
-      allow write: if !exists(/databases/$(database)/documents/system/superAdmin);  // Allow write only if super admin doesn't exist
+    // Helper function to check if user is superAdmin
+    function isSuperAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin';
+    }
+
+    // System settings
+    match /system/settings {
+      allow read: if true;  // Anyone can read settings
+      allow write: if isSuperAdmin();  // Only superAdmin can write
     }
 
     // Users collection
     match /users/{userId} {
-      allow read, write: if true;  // Temporarily allow all operations for initial setup
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if isSuperAdmin();
+    }
+
+    // Invitations collection
+    match /invitations/{invitationId} {
+      allow read: if true;  // Anyone can read to validate invitations
+      allow create: if isSuperAdmin();  // Only superAdmin can create invitations
+      allow update: if true;  // Allow updates for accepting invitations
+      allow delete: if isSuperAdmin();  // Only superAdmin can delete invitations
+    }
+
+    // Apps collection
+    match /apps/{appId} {
+      allow read: if request.auth != null;  // Any authenticated user can read
+      allow write: if isSuperAdmin();       // Only superAdmin can write
     }
   }
 }

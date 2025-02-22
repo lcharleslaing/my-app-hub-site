@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { loginUser } from '../../services/authService';
+import { useSettings } from '../../hooks/useSettings';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -8,6 +9,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { settings } = useSettings();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +79,14 @@ const Login: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {settings?.allowUserRegistration && (
+          <div className="mt-4 text-center">
+            <Link to="/register" className="text-blue-600 hover:text-blue-800">
+              Don't have an account? Register
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
