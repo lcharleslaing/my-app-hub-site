@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // System collection - allow read for initial super admin check
+    match /system/{document} {
+      allow read: if true;  // Temporarily allow reads to check if super admin exists
+      allow write: if !exists(/databases/$(database)/documents/system/superAdmin);  // Allow write only if super admin doesn't exist
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read, write: if true;  // Temporarily allow all operations for initial setup
+    }
+  }
+}

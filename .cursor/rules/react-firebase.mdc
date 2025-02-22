@@ -1,0 +1,104 @@
+---
+description: Guidelines for developing a modular hub application using React and Firebase.
+globs: *.tsx, *.ts
+---
+# Project-Specific AI Assistant Guidelines for React and Firebase Hub Application
+
+**Description:** Guidelines for developing a modular hub application using React and Firebase.
+
+**Globs:** `*.tsx`, `*.ts`
+
+## Project Overview
+- **Frontend Framework:** React.js with TypeScript
+- **Backend Services:** Firebase (Authentication, Firestore, Cloud Functions)
+- **Authentication:** Firebase Authentication with email/password and JWT
+- **Admin Panel:** Admin-only settings module for user management and access control
+- **Goal:** Rapid development and deployment of modular applications within a unified hub
+
+## Development Guidelines
+
+### Project Structure
+- **/src**
+  - **/components**: Reusable UI components
+  - **/modules**: Individual app modules integrated into the hub
+    - **/settings**: Admin settings module
+      - `SettingsPage.tsx`: User management interface
+      - `settingsService.ts`: Functions for user invitations and access control
+  - **/services**: Firebase interaction logic
+    - `firebaseConfig.ts`: Firebase initialization and configuration
+    - `authService.ts`: Authentication logic using Firebase Auth
+    - `firestoreService.ts`: Firestore database operations
+  - **/pages**: Top-level page components
+    - `HomePage.tsx`: Main dashboard of the hub
+  - **/App.tsx**: Root component managing routes and global context
+  - **/index.tsx**: Entry point of the application
+
+### Firebase Integration
+- **Authentication:**
+  - Utilize Firebase Authentication for user sign-up, login, and JWT management.
+  - Implement email/password authentication and manage user sessions securely.
+- **Firestore:**
+  - Use Firestore for real-time database needs, structuring data to support modular apps.
+  - Implement security rules to ensure data integrity and restrict unauthorized access.
+- **Cloud Functions:**
+  - Employ Firebase Cloud Functions for backend logic, such as sending invitations and handling admin tasks.
+
+### State Management
+- Use React's Context API or third-party libraries like Redux for managing global state across the hub.
+- Ensure each module maintains its own local state where applicable, promoting modularity.
+
+### Styling
+- Apply Tailwind CSS for consistent and utility-first styling across the application.
+- Organize styles to allow for easy customization and adherence to design principles.
+
+### Routing
+- Implement React Router for navigation between modules and pages.
+- Protect admin routes to ensure only authorized users can access sensitive areas.
+
+### Debugging and Logging
+- Incorporate `console.log` statements throughout the codebase to facilitate debugging.
+- Ensure logs provide meaningful insights without exposing sensitive information.
+
+### Security Best Practices
+- Store sensitive configuration details, such as Firebase API keys, in environment variables.
+- Regularly review and update Firebase security rules to align with application requirements.
+- Implement proper error handling to prevent exposure of internal logic and data.
+
+### Performance Optimization
+- Lazy load modules and components where appropriate to enhance application performance.
+- Monitor and optimize Firebase queries to ensure efficient data retrieval and manipulation.
+
+## Deployment
+- Utilize Firebase Hosting for deploying the application, ensuring seamless integration with Firebase services.
+- Set up continuous deployment pipelines to automate the deployment process and maintain consistency.
+
+## Documentation
+- Maintain clear and concise documentation for each module, component, and service.
+- Ensure onboarding guides are available to assist new developers in understanding the project structure and conventions.
+
+Let's build this React-Firebase hub application in a logical order. Here's the proposed sequence:
+
+1. Project Setup & Configuration
+- Initialize React-TypeScript project
+- Firebase configuration
+- Environment setup
+2. Authentication Foundation
+- Firebase Auth setup
+- Login/Register components
+- Protected routes
+3. Core Structure & Navigation
+- Basic layout
+- Routing setup
+- Navigation components
+4. Firebase Services Layer
+- Firestore service setup
+- Auth service implementation
+- Common utilities
+5. User Management & Admin Module
+- User roles
+- Admin settings
+- User management interface
+6. Module System
+- Module architecture
+- Module loading system
+- Module integration
