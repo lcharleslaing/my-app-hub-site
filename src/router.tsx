@@ -4,6 +4,7 @@ import { Settings } from './components/admin/Settings';
 import { AppManagement } from './components/admin/AppManagement';
 import { CategoryManagement } from './components/admin/CategoryManagement';
 import { UserManagement } from './components/admin/UserManagement';
+import { AdminDashboard } from './components/admin/AdminDashboard';
 import { InitialSetup } from './components/auth/InitialSetup';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { AdminLayout } from './components/layouts/AdminLayout';
@@ -21,6 +22,10 @@ export const router = createBrowserRouter([
     path: '/admin',
     element: <ProtectedRoute><AdminLayout /></ProtectedRoute>,
     children: [
+      {
+        path: '',
+        element: <AdminDashboard />
+      },
       {
         path: 'settings',
         element: <Settings />
