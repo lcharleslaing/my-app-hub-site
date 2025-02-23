@@ -8,7 +8,8 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  getDoc
 } from 'firebase/firestore';
 import { auth, firestore } from '../../services/firebaseConfig';
 import { Invitation } from '../admin/UserManagement';
@@ -26,14 +27,22 @@ export const Register: React.FC = () => {
   });
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (!token) {
-      setError('Invalid invitation link');
-      setLoading(false);
-      return;
-    }
+    const checkRegistration = async () => {
+      const token = searchParams.get('token');
 
-    const fetchInvitation = async () => {
+      if (!token) {
+        // Direct registration - check if it's allowed
+        const settingsDoc = await getDoc(doc(firestore, 'settings', 'global'));
+        if (!settingsDoc.exists() || !settingsDoc.data()?.allowUserRegistration) {
+          setError('Direct registration is not allowed');
+          setLoading(false);
+          return;
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Invitation-based registration
       try {
         const invitationsRef = collection(firestore, 'invitations');
         const q = query(invitationsRef, where('token', '==', token));
@@ -64,17 +73,12 @@ export const Register: React.FC = () => {
       }
     };
 
-    fetchInvitation();
+    checkRegistration();
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!invitation) {
-      setError('Invalid invitation');
-      return;
-    }
 
     try {
       // Create the user account
@@ -88,14 +92,16 @@ export const Register: React.FC = () => {
       await setDoc(doc(firestore, 'users', userCredential.user.uid), {
         email: formData.email,
         displayName: formData.displayName,
-        role: invitation.role,
+        role: invitation ? invitation.role : 'user', // Default to 'user' for direct registration
         createdAt: new Date().toISOString()
       });
 
-      // Update invitation status
-      await updateDoc(doc(firestore, 'invitations', invitation.id), {
-        status: 'accepted'
-      });
+      // If this was an invitation-based registration, update the invitation status
+      if (invitation) {
+        await updateDoc(doc(firestore, 'invitations', invitation.id), {
+          status: 'accepted'
+        });
+      }
 
       navigate('/');
     } catch (err) {
@@ -122,15 +128,19 @@ export const Register: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6">Complete Registration</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        {invitation ? 'Complete Registration' : 'Create Account'}
+      </h1>
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label className="block text-gray-700 mb-2">Email</label>
           <input
             type="email"
             value={formData.email}
-            disabled
-            className="w-full px-3 py-2 border rounded-md bg-gray-100"
+            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+            disabled={!!invitation}
+            className={`w-full px-3 py-2 border rounded-md ${invitation ? 'bg-gray-100' : ''}`}
+            required
           />
         </div>
         <div className="mb-4">
@@ -157,7 +167,7 @@ export const Register: React.FC = () => {
           type="submit"
           className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
         >
-          Complete Registration
+          {invitation ? 'Complete Registration' : 'Create Account'}
         </button>
       </form>
     </div>

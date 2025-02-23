@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { Home } from './components/home/Home';
 import Login from './components/auth/Login';
+import { Register } from './components/auth/Register';
 import { Settings } from './components/admin/Settings';
 import { AppManagement } from './components/admin/AppManagement';
 import { CategoryManagement } from './components/admin/CategoryManagement';
@@ -11,6 +12,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import { AdminLayout } from './components/layouts/AdminLayout';
 import { Navbar } from './components/layout/Navbar';
 import { Outlet } from 'react-router-dom';
+import { Profile } from './components/profile/Profile';
 
 const Layout = () => (
   <div className="min-h-screen bg-gray-100">
@@ -32,12 +34,20 @@ export const router = createBrowserRouter([
         element: <Login />
       },
       {
+        path: '/register',
+        element: <Register />
+      },
+      {
+        path: '/profile',
+        element: <ProtectedRoute>{/* No requiredRole means any authenticated user */}<Profile /></ProtectedRoute>
+      },
+      {
         path: '/setup',
         element: <InitialSetup />
       },
       {
         path: '/admin',
-        element: <ProtectedRoute><AdminLayout /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="superAdmin"><AdminLayout /></ProtectedRoute>,
         children: [
           {
             path: '',

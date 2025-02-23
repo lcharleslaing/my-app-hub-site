@@ -7,6 +7,7 @@ import { SystemSettings } from '../../hooks/useSettings';
 
 export const Settings: React.FC = () => {
   const { userDetails } = useAuth();
+  console.log('Current user details:', userDetails);
   const [settings, setSettings] = useState<SystemSettings>({
     allowUserRegistration: false,
     maintenanceMode: false,
@@ -24,13 +25,36 @@ export const Settings: React.FC = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const settingsDoc = await getDoc(doc(firestore, 'system', 'settings'));
+        console.log('Fetching settings from system/settings...');
+        const settingsRef = doc(firestore, 'system', 'settings');
+        const settingsDoc = await getDoc(settingsRef);
+        console.log('Settings doc exists:', settingsDoc.exists());
+
         if (settingsDoc.exists()) {
-          setSettings(settingsDoc.data() as SystemSettings);
+          const settingsData = settingsDoc.data() as SystemSettings;
+          console.log('Settings data:', settingsData);
+          setSettings(settingsData);
+        } else {
+          // If settings don't exist, create default settings
+          const defaultSettings: SystemSettings = {
+            allowUserRegistration: false,
+            maintenanceMode: false,
+            siteName: '',
+            supportEmail: '',
+            welcomeMessage: '',
+            showSupportEmail: false,
+            siteIcon: ''
+          };
+
+          console.log('Creating default settings...');
+          await setDoc(settingsRef, defaultSettings);
+          setSettings(defaultSettings);
         }
       } catch (err) {
-        console.error('Error fetching settings:', err);
-        setError('Error fetching settings');
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('Detailed error fetching settings:', err);
+        console.error('Error message:', errorMessage);
+        setError(`Error fetching settings: ${errorMessage}`);
       }
     };
 

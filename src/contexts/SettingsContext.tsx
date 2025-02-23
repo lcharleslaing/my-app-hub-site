@@ -5,6 +5,11 @@ import { firestore } from '../services/firebaseConfig';
 interface Settings {
   siteName: string;
   allowUserRegistration: boolean;
+  maintenanceMode: boolean;
+  supportEmail: string;
+  welcomeMessage: string;
+  showSupportEmail: boolean;
+  siteIcon?: string;
 }
 
 interface SettingsContextType {
@@ -22,7 +27,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(firestore, 'settings', 'global'), (doc) => {
+    const unsubscribe = onSnapshot(doc(firestore, 'system', 'settings'), (doc) => {
       setSettings(doc.exists() ? doc.data() as Settings : null);
       setLoading(false);
     });

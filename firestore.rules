@@ -44,10 +44,15 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
-    // System settings
+    // System settings - both paths for backward compatibility
     match /system/settings {
-      allow read: if true;  // Anyone can read settings
-      allow write: if isSuperAdmin();  // Only superAdmin can write
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    match /settings/global {
+      allow read: if true;
+      allow write: if isSuperAdmin();
     }
 
     // Invitations collection

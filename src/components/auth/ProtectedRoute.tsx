@@ -2,7 +2,12 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requiredRole?: 'superAdmin' | 'admin' | 'user';
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
   const { userDetails, loading } = useAuth();
 
   if (loading) {
@@ -13,7 +18,13 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     );
   }
 
-  if (!userDetails || userDetails.role !== 'superAdmin') {
+  // If no user is logged in, redirect to login
+  if (!userDetails) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // If a specific role is required, check for it
+  if (requiredRole && userDetails.role !== requiredRole) {
     return <Navigate to="/" replace />;
   }
 

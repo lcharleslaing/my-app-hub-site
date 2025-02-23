@@ -55,22 +55,21 @@ export const UserManagement: React.FC = () => {
         email: inviteEmail,
         role: inviteRole,
         token,
+        status: 'pending',
         createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days expiry
-        status: 'pending'
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days expiry
       });
 
-      // Send invitation email (you'll need to implement this with your email service)
-      // For now, we'll just show the registration link
       const registrationLink = `${window.location.origin}/register?token=${token}`;
-      setSuccess(`Invitation sent! Registration link: ${registrationLink}`);
+      setSuccess(`Invitation created! Registration link: ${registrationLink}`);
+      console.log('Registration link:', registrationLink); // For easy copying from console
 
       setShowInviteModal(false);
       setInviteEmail('');
       setInviteRole('user');
     } catch (err) {
-      setError('Failed to send invitation');
-      console.error('Error sending invitation:', err);
+      setError('Failed to create invitation');
+      console.error('Error creating invitation:', err);
     }
   };
 
