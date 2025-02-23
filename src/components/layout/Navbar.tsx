@@ -97,6 +97,7 @@ export const Navbar: React.FC = () => {
                         >
                           Admin Dashboard
                         </Link>
+                        <div className="border-t border-gray-100"></div>
                         <Link
                           to="/admin/apps"
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -117,6 +118,13 @@ export const Navbar: React.FC = () => {
                           onClick={() => setShowProfileMenu(false)}
                         >
                           System Settings
+                        </Link>
+                        <Link
+                          to="/admin/subscription-plans"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowProfileMenu(false)}
+                        >
+                          Subscription Plans
                         </Link>
                       </>
                     )}
@@ -224,6 +232,13 @@ export const Navbar: React.FC = () => {
                       onClick={() => setIsOpen(false)}
                     >
                       System Settings
+                    </Link>
+                    <Link
+                      to="/admin/subscription-plans"
+                      className="text-gray-300 hover:text-white block px-3 py-2"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Subscription Plans
                     </Link>
                   </>
                 )}

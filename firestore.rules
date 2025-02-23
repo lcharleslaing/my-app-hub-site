@@ -7,10 +7,24 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin';
     }
 
-    // System settings
-    match /system/settings {
-      allow read: if true;  // Anyone can read settings
-      allow write: if isSuperAdmin();  // Only superAdmin can write
+    // Apps collection rules
+    match /apps/{appId} {
+      allow read: if request.auth != null;  // Allow all authenticated users to read
+      allow write: if isSuperAdmin();
+    }
+
+    // Categories collection rules
+    match /appCategories/{categoryId} {
+      allow read: if request.auth != null;
+      allow write: if isSuperAdmin();
+    }
+
+    // User subscriptions rules
+    match /userSubscriptions/{subscriptionId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId || isSuperAdmin()
+      );
+      allow write: if isSuperAdmin();
     }
 
     // Users collection
@@ -20,18 +34,16 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
-    // Invitations collection
-    match /invitations/{invitationId} {
-      allow read: if true;  // Anyone can read to validate invitations
-      allow create: if isSuperAdmin();  // Only superAdmin can create invitations
-      allow update: if true;  // Allow updates for accepting invitations
-      allow delete: if isSuperAdmin();  // Only superAdmin can delete invitations
+    // Subscription Plans collection
+    match /subscriptionPlans/{planId} {
+      allow read: if request.auth != null;
+      allow write: if isSuperAdmin();
     }
 
-    // Apps collection
-    match /apps/{appId} {
-      allow read: if request.auth != null;  // Any authenticated user can read
-      allow write: if isSuperAdmin();       // Only superAdmin can write
+    // System settings
+    match /system/settings {
+      allow read: if true;  // Anyone can read settings
+      allow write: if isSuperAdmin();  // Only superAdmin can write
     }
   }
 }

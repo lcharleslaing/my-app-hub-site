@@ -1,19 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc, deleteDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { firestore } from '../../services/firebaseConfig';
 import { useAuth } from '../../contexts/AuthContext';
-
-interface App {
-  id: string;
-  name: string;
-  description: string;
-  url: string;
-  icon: string;
-  allowedRoles: string[];
-  isActive: boolean;
-  createdAt: string;
-  order?: number;
-}
+import type { App, AppCategory } from '../../types/app';
+import { ConfirmationModal } from '../common/ConfirmationModal';
 
 export const AppManagement: React.FC = () => {
   const { userDetails } = useAuth();
@@ -23,19 +13,40 @@ export const AppManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [categories, setCategories] = useState<AppCategory[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [appToDelete, setAppToDelete] = useState<string | null>(null);
 
-  const [currentApp, setCurrentApp] = useState<Omit<App, 'id' | 'createdAt'>>({
+  const [currentApp, setCurrentApp] = useState<Partial<App>>({
     name: '',
     description: '',
     url: '',
-    icon: '',
+    icon: null,
+    categories: [],
     allowedRoles: ['superAdmin'],
-    isActive: true
+    isActive: true,
+    order: 0
   });
+
+  const fetchCategories = async () => {
+    try {
+      const categoriesRef = collection(firestore, 'appCategories');
+      const snapshot = await getDocs(categoriesRef);
+      const categoriesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as AppCategory[];
+      setCategories(categoriesData.sort((a, b) => a.order - b.order));
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+      setError('Failed to fetch categories');
+    }
+  };
 
   useEffect(() => {
     if (userDetails?.role !== 'superAdmin') return;
 
+    fetchCategories();
     const q = query(collection(firestore, 'apps'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const appData: App[] = [];
@@ -55,27 +66,30 @@ export const AppManagement: React.FC = () => {
     setSuccess(null);
 
     try {
-      if (isEditing) {
-        // Update existing app
-        const appRef = doc(firestore, 'apps', (currentApp as App).id);
-        const existingApps = apps.length;
-        const newAppData = {
-          ...currentApp,
-          order: currentApp.order,
+      const appData = {
+        name: currentApp.name || '',
+        description: currentApp.description || '',
+        url: currentApp.url || '',
+        icon: currentApp.icon,
+        categories: Array.isArray(currentApp.categories) ? currentApp.categories : [],
+        allowedRoles: Array.isArray(currentApp.allowedRoles) ? currentApp.allowedRoles : ['superAdmin'],
+        isActive: Boolean(currentApp.isActive),
+        order: typeof currentApp.order === 'number' ? currentApp.order : apps.length,
+      };
+
+      if (isEditing && currentApp.id) {
+        const appRef = doc(firestore, 'apps', currentApp.id);
+        await setDoc(appRef, {
+          ...appData,
           updatedAt: new Date().toISOString()
-        };
-        await setDoc(appRef, newAppData, { merge: true });
+        }, { merge: true });
         setSuccess('App updated successfully!');
       } else {
-        // Create new app
         const appRef = doc(collection(firestore, 'apps'));
-        const existingApps = apps.length;
-        const newAppData = {
-          ...currentApp,
-          order: existingApps,
+        await setDoc(appRef, {
+          ...appData,
           createdAt: new Date().toISOString()
-        };
-        await setDoc(appRef, newAppData);
+        });
         setSuccess('App added successfully!');
       }
 
@@ -87,20 +101,18 @@ export const AppManagement: React.FC = () => {
     }
   };
 
-  const resetForm = () => {
-    setCurrentApp({
-      name: '',
-      description: '',
-      url: '',
-      icon: '',
-      allowedRoles: ['superAdmin'],
-      isActive: true
-    });
-    setIsEditing(false);
-  };
-
   const handleEdit = (app: App) => {
-    setCurrentApp(app);
+    setCurrentApp({
+      id: app.id,
+      name: app.name || '',
+      description: app.description || '',
+      url: app.url || '',
+      icon: app.icon,
+      categories: app.categories || [],
+      allowedRoles: app.allowedRoles || ['superAdmin'],
+      isActive: Boolean(app.isActive),
+      order: typeof app.order === 'number' ? app.order : 0
+    });
     setIsEditing(true);
     setShowModal(true);
   };
@@ -111,24 +123,33 @@ export const AppManagement: React.FC = () => {
   };
 
   const handleToggleRole = (role: string) => {
-    setCurrentApp(prev => ({
-      ...prev,
-      allowedRoles: prev.allowedRoles.includes(role)
-        ? prev.allowedRoles.filter(r => r !== role)
-        : [...prev.allowedRoles, role]
-    }));
+    setCurrentApp(prev => {
+      const roles = prev.allowedRoles || [];
+      return {
+        ...prev,
+        allowedRoles: roles.includes(role)
+          ? roles.filter(r => r !== role)
+          : [...roles, role]
+      };
+    });
   };
 
-  const handleDeleteApp = async (appId: string) => {
-    if (!window.confirm('Are you sure you want to delete this app?')) return;
+  const handleDeleteApp = (appId: string) => {
+    setAppToDelete(appId);
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!appToDelete) return;
     try {
-      await deleteDoc(doc(firestore, 'apps', appId));
+      await deleteDoc(doc(firestore, 'apps', appToDelete));
       setSuccess('App deleted successfully!');
     } catch (err) {
       console.error('Error deleting app:', err);
       setError('Failed to delete app');
     }
+    setAppToDelete(null);
+    setShowDeleteConfirm(false);
   };
 
   const handleToggleActive = async (app: App) => {
@@ -141,6 +162,32 @@ export const AppManagement: React.FC = () => {
       console.error('Error updating app:', err);
       setError('Failed to update app status');
     }
+  };
+
+  const handleToggleCategory = (categoryId: string) => {
+    setCurrentApp(prev => {
+      const categories = prev.categories || [];
+      return {
+        ...prev,
+        categories: categories.includes(categoryId)
+          ? categories.filter(id => id !== categoryId)
+          : [...categories, categoryId]
+      };
+    });
+  };
+
+  const resetForm = () => {
+    setCurrentApp({
+      name: '',
+      description: '',
+      url: '',
+      icon: null,
+      categories: [],
+      allowedRoles: ['superAdmin'],
+      isActive: true,
+      order: 0
+    });
+    setIsEditing(false);
   };
 
   if (userDetails?.role !== 'superAdmin') {
@@ -203,6 +250,22 @@ export const AppManagement: React.FC = () => {
                 className="text-blue-600 hover:text-blue-800">
                 {app.url}
               </a>
+            </div>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">Categories:</p>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {(app.categories || []).map((categoryId) => {
+                  const category = categories.find(c => c.id === categoryId);
+                  return category ? (
+                    <span key={categoryId} className={`px-2 py-1 rounded-full text-sm ${category.type === 'Public' ? 'bg-green-100 text-green-800' :
+                      category.type === 'Private' ? 'bg-red-100 text-red-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                      {category.name}
+                    </span>
+                  ) : null;
+                })}
+              </div>
             </div>
             <div className="mb-4">
               <p className="text-sm text-gray-600">Allowed Roles:</p>
@@ -276,15 +339,22 @@ export const AppManagement: React.FC = () => {
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Icon URL
+                  Categories
                 </label>
-                <input
-                  type="url"
-                  value={currentApp.icon}
-                  onChange={(e) => setCurrentApp(prev => ({ ...prev, icon: e.target.value }))}
-                  className="w-full px-3 py-2 border rounded-md"
-                  required
-                />
+                <div className="space-y-2">
+                  {categories.map((category) => (
+                    <label key={category.id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={(currentApp.categories || []).includes(category.id)}
+                        onChange={() => handleToggleCategory(category.id)}
+                        className="form-checkbox h-4 w-4 text-blue-600"
+                      />
+                      <span className="ml-2">{category.name}</span>
+                      <span className="ml-2 text-sm text-gray-500">({category.type})</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="mb-4">
@@ -296,7 +366,7 @@ export const AppManagement: React.FC = () => {
                     <label key={role} className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={currentApp.allowedRoles.includes(role)}
+                        checked={(currentApp.allowedRoles || ['superAdmin']).includes(role)}
                         onChange={() => handleToggleRole(role)}
                         className="form-checkbox h-4 w-4 text-blue-600"
                       />
@@ -340,6 +410,14 @@ export const AppManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete App"
+        message="Are you sure you want to delete this app? This action cannot be undone."
+      />
     </div>
   );
 };

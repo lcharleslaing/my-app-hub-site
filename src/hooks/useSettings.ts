@@ -9,6 +9,7 @@ export interface SystemSettings {
   supportEmail: string;
   welcomeMessage: string;
   showSupportEmail: boolean;
+  siteIcon?: string;
 }
 
 export const useSettings = () => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc as firestoreDoc, writeBatch, updateDoc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../services/firebaseConfig';
 import { useSettings } from '../../hooks/useSettings';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,17 +20,9 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
-interface App {
-  id: string;
-  name: string;
-  description: string;
-  url: string;
-  icon: string;
-  allowedRoles: string[];
-  isActive: boolean;
-  order?: number;
-}
+import { getWebsiteMetadata } from '../../services/metadata';
+import type { App, AppCategory } from '../../types/app';
+import { getFavicon } from '../../utils/url';
 
 const SortableItem = ({ app }: { app: App }) => {
   const {
@@ -98,9 +90,11 @@ const SortableItem = ({ app }: { app: App }) => {
 
 export const Home: React.FC = () => {
   const { settings, loading: settingsLoading } = useSettings();
-  const { userDetails } = useAuth();
+  const { userDetails, currentUser } = useAuth();
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [categories, setCategories] = useState<AppCategory[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -122,24 +116,83 @@ export const Home: React.FC = () => {
   useEffect(() => {
     const fetchApps = async () => {
       try {
+        // First fetch categories
+        const categoriesRef = collection(firestore, 'appCategories');
+        const categoriesSnapshot = await getDocs(categoriesRef);
+        const categoriesData = categoriesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as AppCategory[];
+        setCategories(categoriesData);
+
+        // Then fetch apps
         const q = query(
           collection(firestore, 'apps'),
-          where('isActive', '==', true),
-          where('allowedRoles', 'array-contains', userDetails?.role || 'user')
+          where('isActive', '==', true)
         );
 
         const querySnapshot = await getDocs(q);
-        const appData: App[] = [];
-        querySnapshot.forEach((doc) => {
-          appData.push({ id: doc.id, ...doc.data() } as App);
+
+        // Get user's active subscription if any
+        const userSubscriptionQuery = query(
+          collection(firestore, 'userSubscriptions'),
+          where('userId', '==', currentUser?.uid),
+          where('status', '==', 'active')
+        );
+        const userSubscriptionSnapshot = await getDocs(userSubscriptionQuery);
+        const userSubscription = userSubscriptionSnapshot.docs[0]?.data();
+
+        // Get the subscription plan details if user has an active subscription
+        let allowedCategories: string[] = [];
+        if (userSubscription) {
+          const planDoc = await getDoc(firestoreDoc(firestore, 'subscriptionPlans', userSubscription.planId));
+          const planData = planDoc.data();
+          allowedCategories = planData?.categories || [];
+        }
+
+        // Filter apps based on role, categories, and subscription
+        const appsPromises = querySnapshot.docs.map(async (docSnapshot) => {
+          const data = { ...docSnapshot.data() as Omit<App, 'id'>, id: docSnapshot.id };
+
+          // Check if user has access to this app
+          const hasRoleAccess = data.allowedRoles.includes(userDetails?.role || 'user');
+          const hasSubscriptionAccess = userDetails?.role === 'superAdmin' || data.categories.every(category =>
+            categoriesData.find(c => c.id === category)?.type === 'Public' ||
+            allowedCategories.includes(category)
+          );
+
+          if (hasRoleAccess && hasSubscriptionAccess) {
+            if (!data.icon && data.url) {
+              try {
+                const metadata = await getWebsiteMetadata(data.url);
+                if (metadata?.icon || metadata?.image) {
+                  data.icon = metadata.icon || metadata.image;
+                  const appRef = firestoreDoc(firestore, 'apps', data.id);
+                  await updateDoc(appRef, { icon: data.icon });
+                } else {
+                  data.icon = getFavicon(data.url);
+                }
+              } catch (error) {
+                console.error('Error fetching metadata for:', data.url, error);
+                data.icon = getFavicon(data.url);
+              }
+            }
+            return data;
+          }
+          return null;
         });
 
-        const sortedApps = appData.sort((a, b) => {
-          if (a.order === undefined && b.order === undefined) return 0;
-          if (a.order === undefined) return 1;
-          if (b.order === undefined) return -1;
-          return a.order - b.order;
+        const resolvedApps = (await Promise.all(appsPromises)).filter((app): app is App => app !== null);
+        const sortedApps = resolvedApps.sort((a, b) => {
+          const orderA = a.order ?? Infinity;
+          const orderB = b.order ?? Infinity;
+          return orderA - orderB;
         });
+
+        console.log('User role:', userDetails?.role);
+        console.log('Apps before filtering:', querySnapshot.docs.length);
+        console.log('Apps after filtering:', resolvedApps.length);
+        console.log('Categories loaded:', categoriesData);
 
         setApps(sortedApps);
       } catch (err) {
@@ -149,10 +202,10 @@ export const Home: React.FC = () => {
       }
     };
 
-    if (userDetails) {
+    if (currentUser) {
       fetchApps();
     }
-  }, [userDetails]);
+  }, [currentUser, userDetails]);
 
   const handleDragStart = (event: any) => {
     if (window.innerWidth < 768) {
@@ -173,7 +226,7 @@ export const Home: React.FC = () => {
 
       const batch = writeBatch(firestore);
       newItems.forEach((app, index) => {
-        const appRef = doc(firestore, 'apps', app.id);
+        const appRef = firestoreDoc(firestore, 'apps', app.id);
         batch.update(appRef, { order: index });
       });
       batch.commit().catch(err => console.error('Error updating order:', err));
