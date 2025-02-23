@@ -1,10 +1,10 @@
 import React from 'react';
 import { RouterProvider } from 'react-router-dom';
-import { router } from './router';
 import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { router } from './router';
 
-function App() {
+const App: React.FC = () => {
   return (
     <AuthProvider>
       <SettingsProvider>
@@ -12,6 +12,6 @@ function App() {
       </SettingsProvider>
     </AuthProvider>
   );
-}
+};
 
 export default App;

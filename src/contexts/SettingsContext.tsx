@@ -3,32 +3,27 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../services/firebaseConfig';
 
 interface Settings {
-  siteName?: string;
-  siteIcon?: string;
-  welcomeMessage?: string;
-  supportEmail?: string;
-  showSupportEmail?: boolean;
-  maintenanceMode?: boolean;
+  siteName: string;
+  allowUserRegistration: boolean;
 }
 
 interface SettingsContextType {
   settings: Settings | null;
   loading: boolean;
-  setSettings: React.Dispatch<React.SetStateAction<Settings | null>>;
 }
 
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
+const SettingsContext = createContext<SettingsContextType>({
+  settings: null,
+  loading: true
+});
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const settingsRef = doc(firestore, 'system', 'settings');
-    const unsubscribe = onSnapshot(settingsRef, (doc) => {
-      if (doc.exists()) {
-        setSettings(doc.data() as Settings);
-      }
+    const unsubscribe = onSnapshot(doc(firestore, 'settings', 'global'), (doc) => {
+      setSettings(doc.exists() ? doc.data() as Settings : null);
       setLoading(false);
     });
 
@@ -36,16 +31,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   return (
-    <SettingsContext.Provider value={{ settings, loading, setSettings }}>
+    <SettingsContext.Provider value={{ settings, loading }}>
       {children}
     </SettingsContext.Provider>
   );
 };
 
-export const useSettings = () => {
-  const context = useContext(SettingsContext);
-  if (context === undefined) {
-    throw new Error('useSettings must be used within a SettingsProvider');
-  }
-  return context;
-};
+export const useSettings = () => useContext(SettingsContext);

@@ -97,7 +97,6 @@ export const Navbar: React.FC = () => {
                         >
                           Admin Dashboard
                         </Link>
-                        <div className="border-t border-gray-100"></div>
                         <Link
                           to="/admin/apps"
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
