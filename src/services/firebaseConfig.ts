@@ -3,6 +3,16 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+// Add debugging
+console.log('Firebase config:', {
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY ? '[SET]' : '[MISSING]',
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN ? '[SET]' : '[MISSING]',
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID ? '[SET]' : '[MISSING]',
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET ? '[SET]' : '[MISSING]',
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID ? '[SET]' : '[MISSING]',
+  appId: process.env.REACT_APP_FIREBASE_APP_ID ? '[SET]' : '[MISSING]'
+});
+
 // Your Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
