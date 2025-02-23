@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
   doc,
-  getDoc,
   setDoc,
   updateDoc,
   collection,
@@ -12,13 +11,14 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { auth, firestore } from '../../services/firebaseConfig';
+import { Invitation } from '../admin/UserManagement';
 
 export const Register: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [invitation, setInvitation] = useState<any>(null);
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -33,11 +33,10 @@ export const Register: React.FC = () => {
       return;
     }
 
-    const validateInvitation = async () => {
+    const fetchInvitation = async () => {
       try {
-        // Query for the invitation
         const invitationsRef = collection(firestore, 'invitations');
-        const q = query(invitationsRef, where('token', '==', token), where('status', '==', 'pending'));
+        const q = query(invitationsRef, where('token', '==', token));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
@@ -47,31 +46,35 @@ export const Register: React.FC = () => {
         }
 
         const invitationDoc = querySnapshot.docs[0];
-        const invitationData = invitationDoc.data();
+        const invitationData = invitationDoc.data() as Invitation;
 
-        // Check if invitation is expired
-        if (new Date(invitationData.expiresAt) < new Date()) {
-          setError('Invitation has expired');
+        if (invitationData.status !== 'pending') {
+          setError('This invitation has already been used or expired');
           setLoading(false);
           return;
         }
 
-        setInvitation({ id: invitationDoc.id, ...invitationData });
+        setInvitation({ ...invitationData, id: invitationDoc.id });
         setFormData(prev => ({ ...prev, email: invitationData.email }));
         setLoading(false);
       } catch (err) {
-        console.error('Error validating invitation:', err);
-        setError('Error validating invitation');
+        console.error('Error fetching invitation:', err);
+        setError('Error fetching invitation details');
         setLoading(false);
       }
     };
 
-    validateInvitation();
+    fetchInvitation();
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!invitation) {
+      setError('Invalid invitation');
+      return;
+    }
 
     try {
       // Create the user account

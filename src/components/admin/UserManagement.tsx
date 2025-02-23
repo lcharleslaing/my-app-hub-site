@@ -11,13 +11,12 @@ interface User {
   createdAt: string;
 }
 
-interface Invitation {
+export interface Invitation {
+  id: string;
   email: string;
   role: string;
-  token: string;
-  createdAt: string;
-  expiresAt: string;
   status: 'pending' | 'accepted' | 'expired';
+  token: string;
 }
 
 export const UserManagement: React.FC = () => {
